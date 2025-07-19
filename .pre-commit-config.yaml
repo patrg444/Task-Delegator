@@ -30,5 +30,5 @@ repos:
     hooks:
       - id: mypy
         additional_dependencies: [types-pyyaml>=6.0]
-        exclude: '^(tests/|examples/)'
+        files: '^task_delegator/'
         args: ['--ignore-missing-imports']

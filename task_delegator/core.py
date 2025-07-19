@@ -264,7 +264,7 @@ class SwarmOrchestrator:
 
             except Exception as e:
                 logger.error(f"[{worker_id}] Unexpected error: {e}")
-                if 'task' in locals() and task is not None and task.id not in self.results:
+                if "task" in locals() and task is not None and task.id not in self.results:
                     task.status = TaskStatus.FAILED
                     task.error = str(e)
                     self.results[task.id] = task
