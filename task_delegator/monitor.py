@@ -76,9 +76,9 @@ class MetricsCollector:
                 "tasks_per_minute": (total_tasks / uptime * 60) if uptime > 0 else 0,
             },
             "performance": {
-                "avg_execution_time": sum(self.task_times) / len(self.task_times)
-                if self.task_times
-                else 0,
+                "avg_execution_time": (
+                    sum(self.task_times) / len(self.task_times) if self.task_times else 0
+                ),
                 "min_execution_time": min(self.task_times) if self.task_times else 0,
                 "max_execution_time": max(self.task_times) if self.task_times else 0,
                 "recent_tasks": len(self.task_times),
