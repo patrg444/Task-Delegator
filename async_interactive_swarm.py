@@ -6,6 +6,7 @@ async_interactive_swarm.py - Enhanced swarm orchestrator with interactive worker
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 from datetime import datetime
@@ -158,7 +159,7 @@ class InteractiveSwarmOrchestrator:
 
         # Start worker tasks
         worker_tasks = []
-        for name, worker in active_workers:
+        for _name, worker in active_workers:
             worker_task = asyncio.create_task(self.worker_loop(worker))
             worker_tasks.append(worker_task)
 
@@ -170,10 +171,8 @@ class InteractiveSwarmOrchestrator:
 
         # Cancel monitor
         monitor_task.cancel()
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await monitor_task
-        except asyncio.CancelledError:
-            pass
 
         self.stats["end_time"] = datetime.now()
         duration = (self.stats["end_time"] - self.stats["start_time"]).total_seconds()
@@ -257,7 +256,7 @@ async def main():
     """Example usage of interactive swarm"""
 
     # Configure accounts
-    ACCOUNTS = {
+    accounts = {
         "account_A": Path.home() / ".claude-work",
         "account_B": Path.home() / ".claude-personal",
     }
@@ -295,7 +294,7 @@ async def main():
     ]
 
     # Run tasks
-    manager = InteractiveTaskManager(ACCOUNTS)
+    manager = InteractiveTaskManager(accounts)
     summary = await manager.run_tasks(tasks)
 
     # Print results

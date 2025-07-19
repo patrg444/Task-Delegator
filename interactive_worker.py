@@ -100,11 +100,7 @@ class InteractiveWorker:
             r"(?i)what.*next",
         ]
 
-        for pattern in next_task_indicators:
-            if re.search(pattern, output):
-                return True
-
-        return False
+        return any(re.search(pattern, output) for pattern in next_task_indicators)
 
     async def execute_task(self, task: dict) -> dict:
         """Execute a task with interactive handling"""
@@ -208,7 +204,7 @@ class InteractiveWorker:
                         task_completed = True
                         self.state = "completed"
                     else:
-                        raise Exception("Task timed out without completion")
+                        raise Exception("Task timed out without completion") from None
 
             # Capture final output
             result["output"] = "".join(self.output_buffer)

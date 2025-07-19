@@ -142,8 +142,8 @@ class TestIntegration:
             return MockClaudeResponse.success_response(f"Task {task_num} completed")
 
         # Mock different responses
-        async def communicate_side_effect(input=None):
-            task_num = input.decode().split()[-1] if input else "?"
+        async def communicate_side_effect(stdin_input=None):
+            task_num = stdin_input.decode().split()[-1] if stdin_input else "?"
             return await response_generator(task_num)
 
         mock_proc.communicate.side_effect = communicate_side_effect

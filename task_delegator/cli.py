@@ -168,10 +168,10 @@ def main():
     run_parser.add_argument("--use-api", action="store_true", help="Use API instead of CLI")
 
     # Setup command
-    setup_parser = subparsers.add_parser("setup", help="Setup Claude accounts")
+    subparsers.add_parser("setup", help="Setup Claude accounts")
 
     # List command
-    list_parser = subparsers.add_parser("list", help="List configured accounts")
+    subparsers.add_parser("list", help="List configured accounts")
 
     # Example command
     example_parser = subparsers.add_parser("example", help="Create example task file")

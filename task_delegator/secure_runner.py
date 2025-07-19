@@ -171,10 +171,7 @@ class PolicyEnforcer:
 
     def needs_confirmation(self, prompt: str) -> bool:
         """Check if prompt requires human confirmation."""
-        for pattern in self.require_confirmation:
-            if pattern in prompt.lower():
-                return True
-        return False
+        return any(pattern in prompt.lower() for pattern in self.require_confirmation)
 
     async def on_prompt(self, prompt: str, worker_id: str) -> tuple[bool, str]:
         """

@@ -178,9 +178,9 @@ async def run_claude(prompt: str, config_dir: Path, timeout: float = 300) -> str
         if proc:
             proc.terminate()
             await proc.wait()
-        raise RuntimeError(f"Claude CLI timed out after {timeout}s")
+        raise RuntimeError(f"Claude CLI timed out after {timeout}s") from None
     except json.JSONDecodeError as e:
-        raise RuntimeError(f"Invalid JSON from Claude CLI: {e}")
+        raise RuntimeError(f"Invalid JSON from Claude CLI: {e}") from e
 
 
 async def worker(
@@ -209,7 +209,6 @@ async def worker(
             start_time = time.time()
 
             # Retry logic
-            last_error = None
             for attempt in range(retry_count):
                 try:
                     logger.info(f"[{name}] Starting task {task.id}: {task.prompt[:50]}...")
@@ -225,7 +224,6 @@ async def worker(
                     break
 
                 except Exception as exc:
-                    last_error = exc
                     if attempt < retry_count - 1:
                         logger.warning(
                             f"[{name}] Retry {attempt + 1}/{retry_count} for task {task.id}: {exc}"

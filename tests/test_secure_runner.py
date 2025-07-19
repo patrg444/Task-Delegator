@@ -133,7 +133,7 @@ class TestSecureClaudeRunner:
 
         # Attempt shell injection
         malicious_prompt = "Calculate 2+2; rm -rf /; echo 'pwned'"
-        result = await runner.run_claude_secure(
+        await runner.run_claude_secure(
             prompt=malicious_prompt, config_dir=Path("/test/config")
         )
 

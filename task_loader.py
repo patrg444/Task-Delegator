@@ -101,10 +101,10 @@ class TaskLoader:
             # Try to detect format from content
             try:
                 return cls.load_from_json(path)
-            except:
+            except (json.JSONDecodeError, ValueError):
                 try:
                     return cls.load_from_yaml(path)
-                except:
+                except (yaml.YAMLError, ValueError):
                     # Default to text format
                     return cls.load_from_text(path)
 

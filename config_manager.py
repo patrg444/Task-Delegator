@@ -74,7 +74,7 @@ class ConfigManager:
                 try:
                     json.loads(result.stdout)
                     return True
-                except:
+                except json.JSONDecodeError:
                     pass
 
             return False

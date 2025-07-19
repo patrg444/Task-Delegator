@@ -74,10 +74,7 @@ class SwarmCLI:
         global ACCOUNTS
         ACCOUNTS = {name: Path(path) for name, path in active_accounts.items()}
 
-        if max_workers:
-            max_workers = min(max_workers, len(ACCOUNTS))
-        else:
-            max_workers = len(ACCOUNTS)
+        max_workers = min(max_workers, len(ACCOUNTS)) if max_workers else len(ACCOUNTS)
 
         logger.info(f"Using up to {max_workers} workers from {len(ACCOUNTS)} available accounts")
 
@@ -156,13 +153,13 @@ def main():
     run_parser.add_argument("--dry-run", action="store_true", help="Show tasks without executing")
 
     # Setup command
-    setup_parser = subparsers.add_parser("setup", help="Setup Claude accounts")
+    subparsers.add_parser("setup", help="Setup Claude accounts")
 
     # List command
-    list_parser = subparsers.add_parser("list", help="List configured accounts")
+    subparsers.add_parser("list", help="List configured accounts")
 
     # Examples command
-    examples_parser = subparsers.add_parser("examples", help="Create example task files")
+    subparsers.add_parser("examples", help="Create example task files")
 
     args = parser.parse_args()
 

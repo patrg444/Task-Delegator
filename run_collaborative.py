@@ -21,7 +21,7 @@ async def main():
     task_file = sys.argv[2] if len(sys.argv) > 2 else None
 
     # Configure your Claude accounts here
-    ACCOUNTS = {
+    accounts = {
         "worker_1": Path.home() / ".claude-work",
         "worker_2": Path.home() / ".claude-personal",
         # Add more accounts as needed
@@ -29,7 +29,7 @@ async def main():
 
     # Create manager
     print(f"Creating collaborative swarm for project: {project_name}")
-    manager = CollaborativeSwarmManager(ACCOUNTS, github_user="patrg444")
+    manager = CollaborativeSwarmManager(accounts, github_user="patrg444")
 
     # Setup GitHub project
     print("Setting up GitHub repository...")
@@ -43,7 +43,7 @@ async def main():
         return
 
     # Initialize workers
-    print(f"\nInitializing {len(ACCOUNTS)} workers...")
+    print(f"\nInitializing {len(accounts)} workers...")
     if not await manager.initialize_workers():
         print("✗ Failed to initialize workers")
         return

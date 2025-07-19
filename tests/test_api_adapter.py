@@ -125,8 +125,7 @@ class TestHybridClaudeRunner:
 
     def test_init_api_mode(self):
         """Test initialization in API mode."""
-        with patch.dict(os.environ, {"CLAUDE_USE_API": "true"}):
-            with patch("task_delegator.api_adapter.USE_API_MODE", True):
+        with patch.dict(os.environ, {"CLAUDE_USE_API": "true"}), patch("task_delegator.api_adapter.USE_API_MODE", True):
                 runner = HybridClaudeRunner(api_key="test_key")
                 assert runner.mode == "api"
                 assert runner.api_adapter is not None
@@ -141,8 +140,7 @@ class TestHybridClaudeRunner:
     @pytest.mark.asyncio
     async def test_run_claude_api_mode(self):
         """Test running in API mode."""
-        with patch.dict(os.environ, {"CLAUDE_USE_API": "true"}):
-            with patch("task_delegator.api_adapter.USE_API_MODE", True):
+        with patch.dict(os.environ, {"CLAUDE_USE_API": "true"}), patch("task_delegator.api_adapter.USE_API_MODE", True):
                 runner = HybridClaudeRunner(api_key="test_key")
 
                 result = await runner.run_claude("Test prompt")
@@ -198,7 +196,7 @@ class TestConfigureClaudeRunner:
     def test_configure_with_api_key(self):
         """Test configuration with API key."""
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "test_key"}):
-            runner = configure_claude_runner(prefer_api=True)
+            configure_claude_runner(prefer_api=True)
             assert os.environ.get("CLAUDE_USE_API") == "true"
 
     def test_configure_prefer_api_no_key(self):

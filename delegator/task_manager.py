@@ -56,7 +56,7 @@ class TaskManager:
     def get_pending_tasks(self) -> list[dict]:
         """Get all pending tasks"""
         pending = []
-        for task_id, task in self.active_tasks.items():
+        for _task_id, task in self.active_tasks.items():
             if task["status"] == "pending":
                 pending.append(task)
         return sorted(pending, key=lambda x: x["priority"], reverse=True)
