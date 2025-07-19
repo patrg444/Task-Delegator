@@ -133,7 +133,7 @@ orchestrator = SwarmOrchestrator(registry, policy_enforcer=policy)
    ```python
    # Old
    ACCOUNTS = {"work": Path(...)}
-   
+
    # New
    registry = AccountRegistry()
    registry.add_account("work", Path(...))
@@ -143,7 +143,7 @@ orchestrator = SwarmOrchestrator(registry, policy_enforcer=policy)
    ```python
    # Old
    from async_swarm import orchestrate
-   
+
    # New
    from task_delegator import SwarmOrchestrator, AccountRegistry
    ```
@@ -152,7 +152,7 @@ orchestrator = SwarmOrchestrator(registry, policy_enforcer=policy)
    ```python
    # Old (vulnerable to injection)
    cmd = f"claude ask '{prompt}'"
-   
+
    # New (secure)
    runner = SecureClaudeRunner()
    result = await runner.run_claude_secure(prompt, config_dir)

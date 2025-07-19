@@ -5,7 +5,7 @@ tasks:
     type: code_analysis
     priority: 8
     weight: 2.5
-  
+
   - id: implement_1
     prompt: Implement caching layer for API responses
     type: implementation
