@@ -38,14 +38,18 @@ class TaskDelegatorCLI:
         logger.info(f"Loaded {len(tasks)} tasks")
 
         # Setup orchestrator
-        orchestrator = SwarmOrchestrator(self.registry, max_concurrent_workers=max_workers or 5)
+        base_orchestrator = SwarmOrchestrator(
+            self.registry, max_concurrent_workers=max_workers or 5
+        )
 
         # Wrap with monitoring if requested
         if enable_monitoring:
-            orchestrator = MonitoredOrchestrator(orchestrator, enable_dashboard=True)
-            result = await orchestrator.orchestrate_with_monitoring(tasks, enable_http_server=True)
+            monitored_orchestrator = MonitoredOrchestrator(base_orchestrator, enable_dashboard=True)
+            result = await monitored_orchestrator.orchestrate_with_monitoring(
+                tasks, enable_http_server=True
+            )
         else:
-            result = await orchestrator.orchestrate(tasks)
+            result = await base_orchestrator.orchestrate(tasks)
 
         # Save results
         if output_file:

@@ -114,8 +114,6 @@ exclude = [
     "shared/",
     "logs/",
     "workers/",
-    "task_delegator/monitor.py",
-    "task_delegator/cli.py",
 ]
 
 [tool.pytest.ini_options]

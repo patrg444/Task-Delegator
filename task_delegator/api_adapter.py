@@ -6,7 +6,7 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -168,9 +168,10 @@ class HybridClaudeRunner:
                 return {"success": False, "error": "config_dir required for CLI mode"}
 
             if self.cli_runner is not None:
-                return await self.cli_runner.run_claude_secure(
+                result = await self.cli_runner.run_claude_secure(
                     prompt=prompt, config_dir=config_dir, timeout=timeout
                 )
+                return cast(dict[str, Any], result)
             else:
                 return {"success": False, "error": "CLI runner not initialized"}
 

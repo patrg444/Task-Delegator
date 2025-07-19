@@ -5,7 +5,7 @@ import json
 import logging
 from collections import defaultdict, deque
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +15,7 @@ class MetricsCollector:
 
     def __init__(self, window_size: int = 100):
         self.window_size = window_size
-        self.task_times = deque(maxlen=window_size)
+        self.task_times: deque[float] = deque(maxlen=window_size)
         self.success_count = 0
         self.failure_count = 0
         self.worker_metrics: dict[str, dict[str, Any]] = defaultdict(
@@ -26,10 +26,10 @@ class MetricsCollector:
                 "last_active": None,
             }
         )
-        self.task_type_metrics = defaultdict(
+        self.task_type_metrics: dict[str, dict[str, Any]] = defaultdict(
             lambda: {"count": 0, "success": 0, "failed": 0, "avg_time": 0.0}
         )
-        self.rate_limit_events = deque(maxlen=50)
+        self.rate_limit_events: deque[tuple[datetime, str]] = deque(maxlen=50)
         self.start_time = datetime.now()
 
     def record_task_completion(
@@ -59,9 +59,7 @@ class MetricsCollector:
 
     def record_rate_limit(self, worker_id: str, retry_after: float):
         """Record rate limit event."""
-        self.rate_limit_events.append(
-            {"worker_id": worker_id, "timestamp": datetime.now(), "retry_after": retry_after}
-        )
+        self.rate_limit_events.append((datetime.now(), worker_id))
 
     def get_summary(self) -> dict[str, Any]:
         """Get current metrics summary."""
@@ -223,7 +221,7 @@ class MonitoringServer:
     def __init__(self, metrics_collector: MetricsCollector, port: int = 8888):
         self.metrics = metrics_collector
         self.port = port
-        self.server = None
+        self.server: asyncio.Server | None = None
 
     async def handle_metrics(self, reader, writer):
         """Handle HTTP request for metrics."""
@@ -258,11 +256,12 @@ class MonitoringServer:
         """Start the monitoring server."""
         self.server = await asyncio.start_server(self.handle_metrics, "127.0.0.1", self.port)
 
-        addr = self.server.sockets[0].getsockname()
-        logger.info(f"Monitoring server started at http://{addr[0]}:{addr[1]}/")
+        if self.server and self.server.sockets:
+            addr = self.server.sockets[0].getsockname()
+            logger.info(f"Monitoring server started at http://{addr[0]}:{addr[1]}/")
 
-        async with self.server:
-            await self.server.serve_forever()
+            async with self.server:
+                await self.server.serve_forever()
 
     async def stop(self):
         """Stop the monitoring server."""
@@ -279,7 +278,7 @@ class MonitoredOrchestrator:
         self.base = base_orchestrator
         self.metrics = MetricsCollector()
         self.dashboard = LiveDashboard(self.metrics) if enable_dashboard else None
-        self.monitoring_server = None
+        self.monitoring_server: MonitoringServer | None = None
 
     async def orchestrate_with_monitoring(
         self, tasks: list[Any], enable_http_server: bool = False, server_port: int = 8888
@@ -320,15 +319,15 @@ class MonitoredOrchestrator:
             # Add metrics to result
             result["metrics"] = self.metrics.get_summary()
 
-            return result
+            return cast(dict[str, Any], result)
 
         finally:
             # Stop monitoring components
-            if dashboard_task:
+            if dashboard_task and self.dashboard:
                 self.dashboard.running = False
                 dashboard_task.cancel()
 
-            if server_task:
+            if server_task and self.monitoring_server:
                 await self.monitoring_server.stop()
                 server_task.cancel()
 
