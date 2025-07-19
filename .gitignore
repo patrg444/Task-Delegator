@@ -35,6 +35,12 @@ workers/*/workspace_*
 logs/
 *.log
 
+# Testing
+.coverage
+coverage.xml
+htmlcov/
+.pytest_cache/
+
 # OS
 .DS_Store
 Thumbs.db

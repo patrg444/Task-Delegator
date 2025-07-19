@@ -52,11 +52,12 @@ class TestAccountRegistry:
         result = registry.remove_account("nonexistent")
         assert result is False
     
-    def test_save_and_load_config(self, temp_config):
+    def test_save_and_load_config(self, temp_config, tmp_path):
         """Test saving and loading configuration."""
         # Create and configure registry
         registry1 = AccountRegistry(config_file=temp_config)
-        registry1.add_account("custom", Path("/custom/path"))
+        custom_path = tmp_path / "custom"
+        registry1.add_account("custom", custom_path)
         registry1._active_accounts.add("custom")
         registry1.save_config()
         
@@ -65,7 +66,7 @@ class TestAccountRegistry:
         accounts = registry2.list_accounts()
         
         assert "custom" in accounts
-        assert accounts["custom"] == Path("/custom/path")
+        assert accounts["custom"] == custom_path
         assert "custom" in registry2._active_accounts
     
     @patch('subprocess.run')
@@ -170,7 +171,8 @@ class TestAccountRegistry:
     @patch('subprocess.run')
     def test_login_account_failure(self, mock_run, registry):
         """Test failed account login."""
-        mock_run.side_effect = Exception("Login failed")
+        import subprocess
+        mock_run.side_effect = subprocess.CalledProcessError(1, ["claude", "/login"])
         
         result = registry.login_account("work")
         assert result is False

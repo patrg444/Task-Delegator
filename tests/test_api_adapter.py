@@ -6,7 +6,7 @@ import os
 from unittest.mock import patch, MagicMock, AsyncMock
 from task_delegator.api_adapter import (
     RateLimiter, ClaudeAPIAdapter, HybridClaudeRunner, 
-    configure_claude_runner, USE_API_MODE
+    configure_claude_runner
 )
 
 
@@ -104,33 +104,16 @@ class TestClaudeAPIAdapter:
         """Test rate limit detection and handling."""
         adapter = ClaudeAPIAdapter(api_key="test_key")
         
-        # Simulate rate limit error
-        with patch.object(adapter, '_ensure_client'):
-            # Mock the API call to raise rate limit error
-            error = Exception("429 rate_limit_error")
+        # Mock the sleep in run_claude_api to raise rate limit error
+        with patch('asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+            # Make sleep raise a rate limit error
+            mock_sleep.side_effect = Exception("429 rate_limit_error")
             
-            # Patch the simulated call
-            with patch('asyncio.sleep', new_callable=AsyncMock):
-                # Override the method temporarily
-                async def mock_run(*args, **kwargs):
-                    await asyncio.sleep(0.5)
-                    raise error
-                
-                # Apply the mock
-                original_method = adapter.run_claude_api
-                adapter.run_claude_api = mock_run
-                
-                try:
-                    result = await adapter.run_claude_api("Test")
-                    
-                    # Restore original method
-                    adapter.run_claude_api = original_method
-                    
-                    assert result['success'] is False
-                    assert result.get('rate_limited') is True
-                    assert 'retry_after' in result
-                finally:
-                    adapter.run_claude_api = original_method
+            result = await adapter.run_claude_api("Test")
+            
+            assert result['success'] is False
+            assert result.get('rate_limited') is True
+            assert 'retry_after' in result
 
 
 class TestHybridClaudeRunner:
@@ -139,9 +122,10 @@ class TestHybridClaudeRunner:
     def test_init_api_mode(self):
         """Test initialization in API mode."""
         with patch.dict(os.environ, {'CLAUDE_USE_API': 'true'}):
-            runner = HybridClaudeRunner(api_key="test_key")
-            assert runner.mode == "api"
-            assert runner.api_adapter is not None
+            with patch('task_delegator.api_adapter.USE_API_MODE', True):
+                runner = HybridClaudeRunner(api_key="test_key")
+                assert runner.mode == "api"
+                assert runner.api_adapter is not None
     
     def test_init_cli_mode(self):
         """Test initialization in CLI mode."""
@@ -154,12 +138,13 @@ class TestHybridClaudeRunner:
     async def test_run_claude_api_mode(self):
         """Test running in API mode."""
         with patch.dict(os.environ, {'CLAUDE_USE_API': 'true'}):
-            runner = HybridClaudeRunner(api_key="test_key")
-            
-            result = await runner.run_claude("Test prompt")
-            
-            assert result['success'] is True
-            assert '[API Mode]' in result['completion']
+            with patch('task_delegator.api_adapter.USE_API_MODE', True):
+                runner = HybridClaudeRunner(api_key="test_key")
+                
+                result = await runner.run_claude("Test prompt")
+                
+                assert result['success'] is True
+                assert '[API Mode]' in result['completion']
     
     @pytest.mark.asyncio
     @patch('task_delegator.secure_runner.SecureClaudeRunner.run_claude_secure')
