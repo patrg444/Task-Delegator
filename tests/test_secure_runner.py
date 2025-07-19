@@ -133,9 +133,7 @@ class TestSecureClaudeRunner:
 
         # Attempt shell injection
         malicious_prompt = "Calculate 2+2; rm -rf /; echo 'pwned'"
-        await runner.run_claude_secure(
-            prompt=malicious_prompt, config_dir=Path("/test/config")
-        )
+        await runner.run_claude_secure(prompt=malicious_prompt, config_dir=Path("/test/config"))
 
         # Verify the command was NOT passed through shell
         call_args = mock_subprocess.call_args

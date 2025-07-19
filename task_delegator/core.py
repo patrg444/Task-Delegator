@@ -45,9 +45,9 @@ class TaskType(Enum):
 class Task:
     """Enhanced task with metadata and tracking."""
 
-    id: str
+    id: str  # noqa: A003
     prompt: str
-    type: TaskType = TaskType.GENERAL
+    type: TaskType = TaskType.GENERAL  # noqa: A003
     priority: int = 5  # 1-10, higher is more important
     weight: float = 1.0  # Computational weight/cost
     status: TaskStatus = TaskStatus.PENDING

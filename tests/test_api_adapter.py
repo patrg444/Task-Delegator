@@ -125,7 +125,9 @@ class TestHybridClaudeRunner:
 
     def test_init_api_mode(self):
         """Test initialization in API mode."""
-        with patch.dict(os.environ, {"CLAUDE_USE_API": "true"}), patch("task_delegator.api_adapter.USE_API_MODE", True):
+        with patch.dict(os.environ, {"CLAUDE_USE_API": "true"}), patch(
+            "task_delegator.api_adapter.USE_API_MODE", True
+        ):
             runner = HybridClaudeRunner(api_key="test_key")
             assert runner.mode == "api"
             assert runner.api_adapter is not None
@@ -140,7 +142,9 @@ class TestHybridClaudeRunner:
     @pytest.mark.asyncio
     async def test_run_claude_api_mode(self):
         """Test running in API mode."""
-        with patch.dict(os.environ, {"CLAUDE_USE_API": "true"}), patch("task_delegator.api_adapter.USE_API_MODE", True):
+        with patch.dict(os.environ, {"CLAUDE_USE_API": "true"}), patch(
+            "task_delegator.api_adapter.USE_API_MODE", True
+        ):
             runner = HybridClaudeRunner(api_key="test_key")
 
             result = await runner.run_claude("Test prompt")

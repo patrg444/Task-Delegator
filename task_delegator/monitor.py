@@ -348,9 +348,7 @@ async def example_with_monitoring():
     tasks = [Task(f"task_{i}", f"Process item {i}", TaskType.GENERAL) for i in range(10)]
 
     # Run with monitoring
-    await monitored.orchestrate_with_monitoring(
-        tasks, enable_http_server=True, server_port=8888
-    )
+    await monitored.orchestrate_with_monitoring(tasks, enable_http_server=True, server_port=8888)
 
     print("Execution complete!")
     print("Metrics available at: http://localhost:8888/")
