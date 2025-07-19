@@ -143,7 +143,7 @@ class HybridClaudeRunner:
 
     def __init__(self, api_key: str | None = None):
         self.api_adapter = ClaudeAPIAdapter(api_key) if USE_API_MODE else None
-        self.cli_runner = None  # Lazy import to avoid circular dependency
+        self.cli_runner: Any = None  # Lazy import to avoid circular dependency
         self.mode = "api" if USE_API_MODE and api_key else "cli"
         logger.info(f"HybridClaudeRunner initialized in {self.mode} mode")
 
@@ -155,7 +155,7 @@ class HybridClaudeRunner:
 
         This provides a unified interface regardless of backend.
         """
-        if self.mode == "api":
+        if self.mode == "api" and self.api_adapter is not None:
             return await self.api_adapter.run_claude_api(prompt=prompt, timeout=timeout, **kwargs)
         else:
             # Use CLI runner
@@ -167,13 +167,16 @@ class HybridClaudeRunner:
             if config_dir is None:
                 return {"success": False, "error": "config_dir required for CLI mode"}
 
-            return await self.cli_runner.run_claude_secure(
-                prompt=prompt, config_dir=config_dir, timeout=timeout
-            )
+            if self.cli_runner is not None:
+                return await self.cli_runner.run_claude_secure(
+                    prompt=prompt, config_dir=config_dir, timeout=timeout
+                )
+            else:
+                return {"success": False, "error": "CLI runner not initialized"}
 
     def get_stats(self) -> dict[str, Any]:
         """Get runtime statistics."""
-        stats = {"mode": self.mode, "timestamp": datetime.now().isoformat()}
+        stats: dict[str, Any] = {"mode": self.mode, "timestamp": datetime.now().isoformat()}
 
         if self.mode == "api" and self.api_adapter:
             stats["rate_limiter"] = {

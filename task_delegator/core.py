@@ -172,7 +172,7 @@ class SwarmOrchestrator:
         self.policy = policy_enforcer or PolicyEnforcer()
         self.runner = SecureClaudeRunner()
         self.worker_stats: dict[str, WorkerStats] = {}
-        self.task_queue: asyncio.PriorityQueue[tuple[float, Task]] = asyncio.PriorityQueue()
+        self.task_queue: asyncio.PriorityQueue[tuple[float, Task | None]] = asyncio.PriorityQueue()
         self.results: dict[str, Task] = {}
 
     def choose_worker_count(self, tasks: list[Task]) -> int:
@@ -213,7 +213,7 @@ class SwarmOrchestrator:
         while True:
             try:
                 # Get task from priority queue
-                _, task = await self.task_queue.get()
+                priority, task = await self.task_queue.get()
 
                 if task is None:  # Sentinel
                     break
@@ -255,15 +255,16 @@ class SwarmOrchestrator:
                     logger.info(f"[{worker_id}] Completed task {task.id} in {execution_time:.1f}s")
                 else:
                     task.status = TaskStatus.FAILED
-                    task.error = result.get("error", "Unknown error")
-                    stats.record_failure(task.error, task.id)
-                    logger.error(f"[{worker_id}] Failed task {task.id}: {task.error}")
+                    error_msg = result.get("error", "Unknown error")
+                    task.error = error_msg
+                    stats.record_failure(error_msg, task.id)
+                    logger.error(f"[{worker_id}] Failed task {task.id}: {error_msg}")
 
                 self.results[task.id] = task
 
             except Exception as e:
                 logger.error(f"[{worker_id}] Unexpected error: {e}")
-                if task and task.id not in self.results:
+                if 'task' in locals() and task is not None and task.id not in self.results:
                     task.status = TaskStatus.FAILED
                     task.error = str(e)
                     self.results[task.id] = task
