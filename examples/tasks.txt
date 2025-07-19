@@ -1,0 +1,6 @@
+# Example task list
+Analyze the performance bottlenecks in the data processing pipeline
+Implement caching layer for API responses
+Write unit tests for the authentication module
+Optimize database queries in the user service
+Create documentation for the REST API endpoints

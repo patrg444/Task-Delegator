@@ -1,0 +1,13 @@
+{
+  "poll_interval": 5,
+  "max_task_duration": 3600,
+  "capabilities": [
+    "code_analysis",
+    "implementation",
+    "debugging",
+    "documentation",
+    "testing",
+    "research"
+  ],
+  "log_level": "INFO"
+}

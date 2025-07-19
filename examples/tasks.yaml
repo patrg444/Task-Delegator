@@ -1,0 +1,13 @@
+
+tasks:
+  - id: analyze_1
+    prompt: Analyze the performance bottlenecks in the data processing pipeline
+    type: code_analysis
+    priority: 8
+    weight: 2.5
+  
+  - id: implement_1
+    prompt: Implement caching layer for API responses
+    type: implementation
+    priority: 7
+    weight: 3.0

@@ -1,0 +1,4 @@
+
+id,prompt,type,priority,weight
+analyze_1,"Analyze the performance bottlenecks in the data processing pipeline",code_analysis,8,2.5
+implement_1,"Implement caching layer for API responses",implementation,7,3.0

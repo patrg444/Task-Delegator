@@ -1,0 +1,19 @@
+{
+  "max_concurrent_tasks": 5,
+  "task_timeout": 3600,
+  "worker_check_interval": 10,
+  "task_priorities": {
+    "critical": 10,
+    "high": 8,
+    "medium": 5,
+    "low": 3
+  },
+  "task_types": [
+    "code_analysis",
+    "implementation",
+    "debugging",
+    "documentation",
+    "testing",
+    "research"
+  ]
+}
