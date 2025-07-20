@@ -1,15 +1,12 @@
 """Tests for the CLI module."""
 
-import asyncio
 import json
-import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from task_delegator.cli import TaskDelegatorCLI, main
-from task_delegator.core import Task, TaskType
 
 
 class TestTaskDelegatorCLI:
@@ -187,9 +184,7 @@ class TestTaskDelegatorCLI:
                     "account2": Path("/path/to/account2"),
                 },
             ),
-            patch.object(
-                cli.registry, "check_login_status", side_effect=[True, False]
-            ),
+            patch.object(cli.registry, "check_login_status", side_effect=[True, False]),
             patch.object(cli.registry, "get_active_accounts", return_value=["account1"]),
         ):
             cli.list_accounts()
@@ -276,7 +271,7 @@ class TestMainFunction:
             patch("asyncio.run") as mock_run,
         ):
             main()
-            
+
             # Get the called coroutine
             coro = mock_run.call_args[0][0]
             # Extract the parameters from the coroutine
@@ -309,9 +304,7 @@ class TestMainFunction:
 
         with (
             patch("sys.argv", ["claude-delegator", "example", "-o", str(output_file)]),
-            patch(
-                "task_delegator.cli.TaskDelegatorCLI.create_example_tasks"
-            ) as mock_create,
+            patch("task_delegator.cli.TaskDelegatorCLI.create_example_tasks") as mock_create,
         ):
             main()
             mock_create.assert_called_once_with(output_file)

@@ -235,7 +235,7 @@ class TestPolicyEnforcer:
         """Test prompt that needs confirmation."""
         config = {"require_confirmation": ["delete", "remove"]}
         enforcer = PolicyEnforcer(config)
-        
+
         with patch("task_delegator.secure_runner.logger") as mock_logger:
             proceed, modified = await enforcer.on_prompt("Please delete the file", "worker_1")
             assert proceed is True
@@ -248,20 +248,20 @@ class TestPolicyEnforcer:
     async def test_run_claude_secure_non_json_output(self):
         """Test handling of non-JSON output."""
         runner = SecureClaudeRunner()
-        
+
         # Mock subprocess to return plain text (as bytes)
         mock_proc = AsyncMock()
         mock_proc.returncode = 0
         mock_proc.communicate = AsyncMock(return_value=(b"Plain text response", b""))
-        
+
         with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
             result = await runner.run_claude_secure(
                 prompt="Test prompt",
                 config_dir=Path("/tmp"),
                 timeout=30,
-                json_output=False  # Explicitly set to False to test non-JSON path
+                json_output=False,  # Explicitly set to False to test non-JSON path
             )
-            
+
             assert result["success"] is True
             assert result["completion"] == "Plain text response"
             assert result["raw_output"] == "Plain text response"
@@ -270,17 +270,15 @@ class TestPolicyEnforcer:
     async def test_run_claude_secure_general_exception(self):
         """Test handling of general exceptions."""
         runner = SecureClaudeRunner()
-        
+
         with (
             patch("asyncio.create_subprocess_exec", side_effect=Exception("Test error")),
             patch("task_delegator.secure_runner.logger") as mock_logger,
         ):
             result = await runner.run_claude_secure(
-                prompt="Test prompt",
-                config_dir=Path("/tmp"),
-                timeout=30
+                prompt="Test prompt", config_dir=Path("/tmp"), timeout=30
             )
-            
+
             assert result["success"] is False
             assert "Test error" in result["error"]
             mock_logger.error.assert_called_once()
@@ -297,11 +295,12 @@ class TestPolicyEnforcer:
             mock_runner.run_claude_secure = AsyncMock(
                 return_value={"success": True, "completion": "4"}
             )
-            
+
             # Import and run the example function
             from task_delegator.secure_runner import example_secure_execution
+
             await example_secure_execution()
-            
+
             # Verify it was called with the malicious prompt
             mock_runner.run_claude_secure.assert_called_once()
             call_args = mock_runner.run_claude_secure.call_args[1]
@@ -319,8 +318,9 @@ class TestPolicyEnforcer:
             mock_runner.run_claude_secure = AsyncMock(
                 return_value={"success": False, "error": "Command failed"}
             )
-            
+
             from task_delegator.secure_runner import example_secure_execution
+
             await example_secure_execution()
-            
+
             mock_print.assert_called_with("Error: Command failed")

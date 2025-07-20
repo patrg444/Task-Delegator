@@ -1,6 +1,7 @@
 """Tests for the monitoring module."""
 
 import asyncio
+import contextlib
 import json
 from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -310,10 +311,8 @@ class TestMonitoringServer:
 
             # Cancel the server task
             server_task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await server_task
-            except asyncio.CancelledError:
-                pass
 
         mock_server.close.assert_called_once()
 
@@ -336,13 +335,13 @@ class TestLiveDashboard2:
             "total_time": 25.0,
             "last_active": datetime.now().isoformat(),  # String timestamp
         }
-        
+
         output = dashboard.render()
-        
+
         assert "worker_1" in output
         assert "5" in output  # tasks_completed
         # Should handle string timestamp conversion
-        assert ("Active" in output or "Idle" in output)
+        assert "Active" in output or "Idle" in output
 
     def test_render_with_inactive_worker(self, dashboard):
         """Test rendering with worker that has no last_active."""
@@ -353,9 +352,9 @@ class TestLiveDashboard2:
             "total_time": 0.0,
             "last_active": None,
         }
-        
+
         output = dashboard.render()
-        
+
         assert "worker_1" in output
         assert "Inactive" in output
 
@@ -398,16 +397,14 @@ class TestMonitoredOrchestrator:
     @pytest.mark.asyncio
     async def test_orchestrate_with_http_server(self, orchestrator):
         """Test orchestration with HTTP server enabled."""
-        orchestrator.base.orchestrate = AsyncMock(
-            return_value={"success": True, "results": {}}
-        )
+        orchestrator.base.orchestrate = AsyncMock(return_value={"success": True, "results": {}})
 
         # Mock the monitoring server
         with patch("task_delegator.monitor.MonitoringServer") as mock_server_class:
             mock_server = AsyncMock()
             mock_server_class.return_value = mock_server
 
-            result = await orchestrator.orchestrate_with_monitoring(
+            await orchestrator.orchestrate_with_monitoring(
                 ["task"], enable_http_server=True, server_port=8890
             )
 
@@ -418,13 +415,11 @@ class TestMonitoredOrchestrator:
     @pytest.mark.asyncio
     async def test_orchestrate_with_dashboard(self, orchestrator):
         """Test orchestration with dashboard enabled."""
-        orchestrator.base.orchestrate = AsyncMock(
-            return_value={"success": True, "results": {}}
-        )
+        orchestrator.base.orchestrate = AsyncMock(return_value={"success": True, "results": {}})
         orchestrator.dashboard = MagicMock()
         orchestrator.dashboard.run = AsyncMock()
 
-        result = await orchestrator.orchestrate_with_monitoring(["task"])
+        await orchestrator.orchestrate_with_monitoring(["task"])
 
         orchestrator.dashboard.run.assert_called_once()
         assert orchestrator.dashboard.running is False
@@ -432,16 +427,12 @@ class TestMonitoredOrchestrator:
     @pytest.mark.asyncio
     async def test_cleanup_on_error(self, orchestrator):
         """Test cleanup when orchestration fails."""
-        orchestrator.base.orchestrate = AsyncMock(
-            side_effect=Exception("Test error")
-        )
+        orchestrator.base.orchestrate = AsyncMock(side_effect=Exception("Test error"))
         orchestrator.dashboard = MagicMock()
         orchestrator.dashboard.run = AsyncMock()
 
         with pytest.raises(Exception, match="Test error"):
-            await orchestrator.orchestrate_with_monitoring(
-                ["task"], enable_http_server=True
-            )
+            await orchestrator.orchestrate_with_monitoring(["task"], enable_http_server=True)
 
         # Ensure cleanup happened
         assert orchestrator.dashboard.running is False
@@ -459,29 +450,28 @@ async def test_example_with_monitoring():
     ):
         # Setup mocks
         mock_registry = mock_registry_class.return_value
-        mock_base = mock_orchestrator_class.return_value
-        
+
         # Mock MonitoredOrchestrator with proper async method
         mock_monitored = MagicMock()
         mock_monitored.orchestrate_with_monitoring = AsyncMock()
-        
+
         # Patch MonitoredOrchestrator in the monitor module
         with patch("task_delegator.monitor.MonitoredOrchestrator", return_value=mock_monitored):
             # Mock Task creation
-            mock_task_class.side_effect = lambda id, prompt, task_type: MagicMock(
-                id=id, prompt=prompt, task_type=task_type
+            mock_task_class.side_effect = lambda task_id, prompt, task_type: MagicMock(
+                id=task_id, prompt=prompt, task_type=task_type
             )
-            
+
             # Run the example
             await example_with_monitoring()
-            
+
             # Verify it was called correctly
             mock_registry_class.assert_called_once()
             mock_orchestrator_class.assert_called_once_with(mock_registry)
-            
+
             # Check that tasks were created
             assert mock_task_class.call_count == 10
-            
+
             # Check that monitoring was called
             mock_monitored.orchestrate_with_monitoring.assert_called_once()
             call_args = mock_monitored.orchestrate_with_monitoring.call_args
@@ -489,7 +479,7 @@ async def test_example_with_monitoring():
             assert len(tasks) == 10
             assert call_args[1]["enable_http_server"] is True
             assert call_args[1]["server_port"] == 8888
-            
+
             # Check print statements
             assert mock_print.call_count == 2
             mock_print.assert_any_call("Execution complete!")

@@ -7,7 +7,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from task_delegator.account_registry import AccountRegistry
-from task_delegator.core import SwarmOrchestrator, Task, TaskLoader, TaskStatus, TaskType, WorkerStats
+from task_delegator.core import (
+    SwarmOrchestrator,
+    Task,
+    TaskLoader,
+    TaskStatus,
+    TaskType,
+    WorkerStats,
+)
 
 
 class TestTask:
@@ -241,13 +248,13 @@ class TestSwarmOrchestrator:
             for i in range(5):
                 assert f"task_{i}" in result["results"]
 
-    @pytest.mark.asyncio  
+    @pytest.mark.asyncio
     async def test_worker_security_policy_block(self, tmp_path):
         """Test security policy blocking in worker."""
         # We'll test the worker method directly to avoid queue comparison issues
         registry = AccountRegistry(config_file=tmp_path / "test_accounts.json")
         registry.add_account("worker_1", tmp_path / "worker1_config")
-        
+
         # Mock both SecureClaudeRunner and PolicyEnforcer at module level
         with (
             patch("task_delegator.core.SecureClaudeRunner") as mock_runner_class,
@@ -255,15 +262,17 @@ class TestSwarmOrchestrator:
         ):
             # Set up the mocks
             mock_runner = mock_runner_class.return_value
-            mock_runner.run_claude_secure = AsyncMock(return_value={"success": True, "completion": "Done"})
-            
+            mock_runner.run_claude_secure = AsyncMock(
+                return_value={"success": True, "completion": "Done"}
+            )
+
             mock_enforcer = mock_enforcer_class.return_value
             mock_enforcer.on_prompt = AsyncMock(return_value=(False, "dangerous"))
-            
+
             # Now create orchestrator - it will use the mocked classes
             orchestrator = SwarmOrchestrator(registry)
             orchestrator.results = {}
-            
+
             # Create a mock queue with a task
             mock_queue = AsyncMock()
             dangerous_task = Task("dangerous_task", "Do something dangerous")
@@ -273,10 +282,10 @@ class TestSwarmOrchestrator:
             ]
             mock_queue.task_done = MagicMock()
             orchestrator.task_queue = mock_queue
-            
+
             # Run worker
             await orchestrator.worker_loop("worker_1", tmp_path / "worker1_config")
-            
+
             # Check task was marked as failed
             assert dangerous_task.id in orchestrator.results
             result = orchestrator.results[dangerous_task.id]
@@ -288,7 +297,7 @@ class TestSwarmOrchestrator:
         """Test worker handling unexpected errors during task execution."""
         registry = AccountRegistry(config_file=tmp_path / "test_accounts.json")
         registry.add_account("worker_1", tmp_path / "worker1_config")
-        
+
         # Mock both SecureClaudeRunner and PolicyEnforcer at module level
         with (
             patch("task_delegator.core.SecureClaudeRunner") as mock_runner_class,
@@ -299,14 +308,14 @@ class TestSwarmOrchestrator:
             mock_runner.run_claude_secure = AsyncMock(
                 side_effect=Exception("Unexpected error during execution")
             )
-            
+
             mock_enforcer = mock_enforcer_class.return_value
             mock_enforcer.on_prompt = AsyncMock(return_value=(True, "prompt"))
-            
+
             # Now create orchestrator - it will use the mocked classes
             orchestrator = SwarmOrchestrator(registry)
             orchestrator.results = {}
-            
+
             # Create a mock queue with a task
             mock_queue = AsyncMock()
             error_task = Task("error_task", "This will error")
@@ -316,10 +325,10 @@ class TestSwarmOrchestrator:
             ]
             mock_queue.task_done = MagicMock()
             orchestrator.task_queue = mock_queue
-            
+
             # Run worker
             await orchestrator.worker_loop("worker_1", tmp_path / "worker1_config")
-            
+
             # Check task was marked as failed
             assert error_task.id in orchestrator.results
             result = orchestrator.results[error_task.id]
@@ -329,9 +338,9 @@ class TestSwarmOrchestrator:
     def test_task_loader_from_prompts(self):
         """Test creating tasks from prompts."""
         prompts = ["Do task 1", "Do task 2", "Do task 3"]
-        
+
         tasks = TaskLoader.from_prompts(prompts, TaskType.IMPLEMENTATION)
-        
+
         assert len(tasks) == 3
         for i, task in enumerate(tasks):
             assert task.id == f"task_{i}"
