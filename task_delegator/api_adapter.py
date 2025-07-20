@@ -167,13 +167,10 @@ class HybridClaudeRunner:
             if config_dir is None:
                 return {"success": False, "error": "config_dir required for CLI mode"}
 
-            if self.cli_runner is not None:
-                result = await self.cli_runner.run_claude_secure(
-                    prompt=prompt, config_dir=config_dir, timeout=timeout
-                )
-                return cast(dict[str, Any], result)
-            else:
-                return {"success": False, "error": "CLI runner not initialized"}
+            result = await self.cli_runner.run_claude_secure(
+                prompt=prompt, config_dir=config_dir, timeout=timeout
+            )
+            return cast(dict[str, Any], result)
 
     def get_stats(self) -> dict[str, Any]:
         """Get runtime statistics."""

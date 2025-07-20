@@ -253,3 +253,25 @@ class TestAccountRegistry:
 
         captured = capsys.readouterr()
         assert "Ready to use: home, work, personal" in captured.out
+
+    def test_add_account_already_exists(self, registry, tmp_path):
+        """Test adding an account that already exists."""
+        # Use an existing account name
+        existing_account = "work"  # This exists in the fixture
+        new_config_dir = tmp_path / "new_work_config"
+        
+        with patch("task_delegator.account_registry.logger") as mock_logger:
+            registry.add_account(existing_account, new_config_dir)
+            
+            # Check warning was logged
+            mock_logger.warning.assert_called_once_with(
+                "Account work already exists, updating path"
+            )
+            
+            # Verify the path was updated
+            assert registry.get_account_path(existing_account) == new_config_dir
+
+    def test_check_login_status_nonexistent_account(self, registry):
+        """Test checking login status for non-existent account."""
+        result = registry.check_login_status("nonexistent_account")
+        assert result is False

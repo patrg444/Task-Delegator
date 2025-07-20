@@ -88,6 +88,23 @@ class TestClaudeAPIAdapter:
             adapter._ensure_client()
             mock_logger.info.assert_called_once_with("API client initialized")
 
+    def test_ensure_client_initialization_error(self):
+        """Test _ensure_client handling initialization error."""
+        adapter = ClaudeAPIAdapter(api_key="test_key")
+        adapter._client = None
+
+        # Mock an error during initialization
+        with (
+            patch("task_delegator.api_adapter.logger") as mock_logger,
+            pytest.raises(Exception, match="Init failed"),
+        ):
+            # Force an exception by mocking the logger.info to raise
+            mock_logger.info.side_effect = Exception("Init failed")
+            adapter._ensure_client()
+            
+            # Check that error was logged
+            mock_logger.error.assert_called_once()
+
     def test_init_from_env(self):
         """Test initialization from environment."""
         with patch.dict(os.environ, {"ANTHROPIC_API_KEY": "env_key_456"}):
@@ -366,6 +383,7 @@ class TestRateLimitAwareOrchestrator:
 
             # Should handle timeout gracefully
             await orchestrator.adaptive_worker_loop("worker_1", Path("/tmp"))
+
 
     @pytest.mark.asyncio
     async def test_adaptive_worker_loop_with_delay(self):
