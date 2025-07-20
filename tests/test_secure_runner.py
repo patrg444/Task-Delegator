@@ -229,3 +229,98 @@ class TestPolicyEnforcer:
         # Blocked prompt
         proceed, modified = await enforcer.on_prompt("Do something dangerous", "worker_1")
         assert proceed is False
+
+    @pytest.mark.asyncio
+    async def test_on_prompt_needs_confirmation(self):
+        """Test prompt that needs confirmation."""
+        config = {"require_confirmation": ["delete", "remove"]}
+        enforcer = PolicyEnforcer(config)
+        
+        with patch("task_delegator.secure_runner.logger") as mock_logger:
+            proceed, modified = await enforcer.on_prompt("Please delete the file", "worker_1")
+            assert proceed is True
+            assert modified == "Please delete the file"
+            # Check that confirmation warning was logged
+            assert mock_logger.info.called
+            assert mock_logger.warning.called
+
+    @pytest.mark.asyncio
+    async def test_run_claude_secure_non_json_output(self):
+        """Test handling of non-JSON output."""
+        runner = SecureClaudeRunner()
+        
+        # Mock subprocess to return plain text (as bytes)
+        mock_proc = AsyncMock()
+        mock_proc.returncode = 0
+        mock_proc.communicate = AsyncMock(return_value=(b"Plain text response", b""))
+        
+        with patch("asyncio.create_subprocess_exec", return_value=mock_proc):
+            result = await runner.run_claude_secure(
+                prompt="Test prompt",
+                config_dir=Path("/tmp"),
+                timeout=30,
+                json_output=False  # Explicitly set to False to test non-JSON path
+            )
+            
+            assert result["success"] is True
+            assert result["completion"] == "Plain text response"
+            assert result["raw_output"] == "Plain text response"
+
+    @pytest.mark.asyncio
+    async def test_run_claude_secure_general_exception(self):
+        """Test handling of general exceptions."""
+        runner = SecureClaudeRunner()
+        
+        with (
+            patch("asyncio.create_subprocess_exec", side_effect=Exception("Test error")),
+            patch("task_delegator.secure_runner.logger") as mock_logger,
+        ):
+            result = await runner.run_claude_secure(
+                prompt="Test prompt",
+                config_dir=Path("/tmp"),
+                timeout=30
+            )
+            
+            assert result["success"] is False
+            assert "Test error" in result["error"]
+            mock_logger.error.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_example_secure_execution(self):
+        """Test the example function."""
+        # Mock the runner
+        with (
+            patch("task_delegator.secure_runner.SecureClaudeRunner") as mock_runner_class,
+            patch("builtins.print") as mock_print,
+        ):
+            mock_runner = mock_runner_class.return_value
+            mock_runner.run_claude_secure = AsyncMock(
+                return_value={"success": True, "completion": "4"}
+            )
+            
+            # Import and run the example function
+            from task_delegator.secure_runner import example_secure_execution
+            await example_secure_execution()
+            
+            # Verify it was called with the malicious prompt
+            mock_runner.run_claude_secure.assert_called_once()
+            call_args = mock_runner.run_claude_secure.call_args[1]
+            assert "rm -rf /" in call_args["prompt"]
+            mock_print.assert_called_with("Claude response: 4")
+
+    @pytest.mark.asyncio
+    async def test_example_secure_execution_error(self):
+        """Test the example function with error."""
+        with (
+            patch("task_delegator.secure_runner.SecureClaudeRunner") as mock_runner_class,
+            patch("builtins.print") as mock_print,
+        ):
+            mock_runner = mock_runner_class.return_value
+            mock_runner.run_claude_secure = AsyncMock(
+                return_value={"success": False, "error": "Command failed"}
+            )
+            
+            from task_delegator.secure_runner import example_secure_execution
+            await example_secure_execution()
+            
+            mock_print.assert_called_with("Error: Command failed")

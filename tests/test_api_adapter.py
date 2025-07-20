@@ -2,7 +2,8 @@
 
 import asyncio
 import os
-from unittest.mock import AsyncMock, patch
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -10,6 +11,7 @@ from task_delegator.api_adapter import (
     ClaudeAPIAdapter,
     HybridClaudeRunner,
     RateLimiter,
+    RateLimitAwareOrchestrator,
     configure_claude_runner,
 )
 
@@ -75,6 +77,16 @@ class TestClaudeAPIAdapter:
         """Test initialization with API key."""
         adapter = ClaudeAPIAdapter(api_key="test_key_123")
         assert adapter.api_key == "test_key_123"
+
+    def test_ensure_client_success(self):
+        """Test _ensure_client successful path."""
+        adapter = ClaudeAPIAdapter(api_key="test_key")
+        adapter._client = None
+        
+        # Test the normal path - should just log info
+        with patch("task_delegator.api_adapter.logger") as mock_logger:
+            adapter._ensure_client()
+            mock_logger.info.assert_called_once_with("API client initialized")
 
     def test_init_from_env(self):
         """Test initialization from environment."""
@@ -189,6 +201,21 @@ class TestHybridClaudeRunner:
         assert "mode" in stats
         assert "timestamp" in stats
 
+    def test_get_stats_api_mode(self):
+        """Test getting runtime statistics in API mode."""
+        with (
+            patch.dict(os.environ, {"CLAUDE_USE_API": "true"}),
+            patch("task_delegator.api_adapter.USE_API_MODE", True),
+        ):
+            runner = HybridClaudeRunner(api_key="test_key")
+            stats = runner.get_stats()
+
+            assert stats["mode"] == "api"
+            assert "rate_limiter" in stats
+            assert "consecutive_429s" in stats["rate_limiter"]
+            assert "current_delay" in stats["rate_limiter"]
+
+
 
 class TestConfigureClaudeRunner:
     """Test runner configuration."""
@@ -210,3 +237,171 @@ class TestConfigureClaudeRunner:
         with patch.dict(os.environ, {}, clear=True):
             runner = configure_claude_runner(prefer_api=True)
             assert runner.mode == "cli"  # Falls back to CLI
+
+    @pytest.mark.asyncio
+    async def test_api_client_initialization_error(self):
+        """Test handling of API client initialization error."""
+        adapter = ClaudeAPIAdapter(api_key="test_key")
+        
+        # Mock the _ensure_client to raise an exception
+        with patch.object(adapter, "_ensure_client", side_effect=Exception("Init failed")):
+            result = await adapter.run_claude_api("Test prompt")
+            
+            assert result["success"] is False
+            assert "Init failed" in result["error"]
+
+    def test_extract_retry_after(self):
+        """Test extracting retry after value."""
+        adapter = ClaudeAPIAdapter(api_key="test_key")
+        
+        # Currently returns default value
+        retry_after = adapter._extract_retry_after(Exception("Rate limited"))
+        assert retry_after == 30.0
+
+    @pytest.mark.asyncio
+    async def test_api_adapter_other_error(self):
+        """Test handling of non-rate-limit errors."""
+        adapter = ClaudeAPIAdapter(api_key="test_key")
+        
+        # Mock sleep to raise a different error
+        with patch("asyncio.sleep", side_effect=Exception("Network error")):
+            result = await adapter.run_claude_api("Test")
+            
+            assert result["success"] is False
+            assert "Network error" in result["error"]
+            assert result.get("rate_limited") is None
+
+
+class TestRateLimitAwareOrchestrator:
+    """Test the rate limit aware orchestrator."""
+
+    @pytest.mark.asyncio
+    async def test_adaptive_worker_loop_basic(self):
+        """Test basic adaptive worker loop functionality."""
+        # Create mock base orchestrator
+        mock_base = MagicMock()
+        mock_base.task_queue = AsyncMock()
+        mock_base.registry = MagicMock()
+        mock_base.registry.get_active_accounts.return_value = ["account1", "account2"]
+        
+        orchestrator = RateLimitAwareOrchestrator(mock_base, use_api=True)
+        
+        # Create a mock task
+        mock_task = MagicMock()
+        mock_task.prompt = "Test prompt"
+        
+        # Set up the queue to return task then None (sentinel)
+        mock_base.task_queue.get.side_effect = [
+            (1, mock_task),
+            (None, None),  # Sentinel to exit loop
+        ]
+        
+        # Mock the runner
+        with patch("task_delegator.api_adapter.configure_claude_runner") as mock_configure:
+            mock_runner = AsyncMock()
+            mock_configure.return_value = mock_runner
+            mock_runner.run_claude.return_value = {"success": True, "completion": "Done"}
+            
+            # Run the worker loop
+            await orchestrator.adaptive_worker_loop("worker_1", Path("/tmp"))
+            
+            # Verify task was processed
+            mock_runner.run_claude.assert_called_once_with(
+                prompt="Test prompt", config_dir=Path("/tmp")
+            )
+
+    @pytest.mark.asyncio
+    async def test_adaptive_worker_loop_rate_limit(self):
+        """Test worker loop handling rate limits."""
+        mock_base = MagicMock()
+        mock_base.task_queue = AsyncMock()
+        mock_base.registry = MagicMock()
+        mock_base.registry.get_active_accounts.return_value = ["account1"]
+        
+        orchestrator = RateLimitAwareOrchestrator(mock_base, use_api=True)
+        
+        # Create a mock task
+        mock_task = MagicMock()
+        mock_task.prompt = "Test prompt"
+        mock_task.priority_key.return_value = 1
+        
+        # First get returns task, second returns None
+        mock_base.task_queue.get.side_effect = [
+            (1, mock_task),
+            (None, None),
+        ]
+        
+        with patch("task_delegator.api_adapter.configure_claude_runner") as mock_configure:
+            mock_runner = AsyncMock()
+            mock_configure.return_value = mock_runner
+            # Return rate limited response
+            mock_runner.run_claude.return_value = {
+                "success": False,
+                "rate_limited": True,
+                "retry_after": 15,
+            }
+            
+            await orchestrator.adaptive_worker_loop("worker_1", Path("/tmp"))
+            
+            # Check that task was put back in queue
+            mock_base.task_queue.put.assert_called_once_with((1, mock_task))
+            # Worker delay gets cleared after use, so it won't be present anymore
+
+    @pytest.mark.asyncio
+    async def test_adaptive_worker_loop_timeout(self):
+        """Test worker loop handling queue timeout."""
+        mock_base = MagicMock()
+        mock_base.task_queue = AsyncMock()
+        
+        orchestrator = RateLimitAwareOrchestrator(mock_base)
+        
+        # Make get timeout, then return None
+        mock_base.task_queue.get.side_effect = [
+            asyncio.TimeoutError,
+            (None, None),
+        ]
+        
+        with patch("task_delegator.api_adapter.configure_claude_runner") as mock_configure:
+            mock_runner = AsyncMock()
+            mock_configure.return_value = mock_runner
+            
+            # Should handle timeout gracefully
+            await orchestrator.adaptive_worker_loop("worker_1", Path("/tmp"))
+
+    @pytest.mark.asyncio
+    async def test_adaptive_worker_loop_with_delay(self):
+        """Test worker loop with existing delay."""
+        mock_base = MagicMock()
+        mock_base.task_queue = AsyncMock()
+        
+        orchestrator = RateLimitAwareOrchestrator(mock_base)
+        orchestrator.worker_delays["worker_1"] = 0.1  # Small delay for testing
+        
+        mock_base.task_queue.get.side_effect = [(None, None)]
+        
+        with patch("asyncio.sleep") as mock_sleep:
+            await orchestrator.adaptive_worker_loop("worker_1", Path("/tmp"))
+            
+            # Verify delay was applied
+            mock_sleep.assert_called_once_with(0.1)
+            assert "worker_1" not in orchestrator.worker_delays
+
+    @pytest.mark.asyncio
+    async def test_adaptive_worker_loop_error_handling(self):
+        """Test error handling in worker loop."""
+        mock_base = MagicMock()
+        mock_base.task_queue = AsyncMock()
+        
+        orchestrator = RateLimitAwareOrchestrator(mock_base)
+        
+        # First get raises exception, second returns None
+        mock_base.task_queue.get.side_effect = [
+            Exception("Queue error"),
+            (None, None),
+        ]
+        
+        with patch("task_delegator.api_adapter.logger") as mock_logger:
+            await orchestrator.adaptive_worker_loop("worker_1", Path("/tmp"))
+            
+            # Verify error was logged
+            mock_logger.error.assert_called_once()

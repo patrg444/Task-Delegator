@@ -1,7 +1,7 @@
 """Tests for AccountRegistry class."""
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -175,3 +175,77 @@ class TestAccountRegistry:
         """Test login attempt for non-existent account."""
         result = registry.login_account("nonexistent")
         assert result is False
+
+    def test_load_config_with_error(self, tmp_path):
+        """Test loading config with error."""
+        config_file = tmp_path / "bad_config.json"
+        config_file.write_text("invalid json")
+        
+        with patch("task_delegator.account_registry.logger") as mock_logger:
+            registry = AccountRegistry(config_file=config_file)
+            
+            # Should log error and initialize defaults
+            mock_logger.error.assert_called_once()
+            # Default accounts depend on user's home directory
+            assert len(registry._accounts) > 0  # At least some default accounts
+
+    def test_check_login_status_error(self, registry):
+        """Test check_login_status with error."""
+        # Use an account that exists in the fixture
+        test_account = "work"
+        assert test_account in registry._accounts
+        
+        with (
+            patch("subprocess.run", side_effect=Exception("Command failed")),
+            patch("task_delegator.account_registry.logger") as mock_logger,
+        ):
+            result = registry.check_login_status(test_account)
+            
+            assert result is False
+            mock_logger.error.assert_called_once()
+            assert test_account not in registry._active_accounts
+
+    def test_setup_all_accounts(self, registry, monkeypatch, capsys):
+        """Test interactive setup of all accounts."""
+        # Registry has 'work' and 'personal' accounts
+        # Mock user inputs - 'n' for first not-logged-in account, 'y' for second
+        inputs = iter(["y"])  # Only one response needed for personal account
+        monkeypatch.setattr("builtins.input", lambda _: next(inputs))
+        
+        # Mock check_login_status to return different values
+        check_results = [True, False]  # work logged in, personal not
+        registry.check_login_status = Mock(side_effect=check_results)
+        
+        # Mock login_account
+        registry.login_account = Mock(return_value=True)
+        
+        # Mock get_active_accounts to return work account
+        registry.get_active_accounts = Mock(return_value={"work": Path("/Users/patrickgloria/.claude-work")})
+        
+        active_count = registry.setup_all_accounts()
+        
+        assert active_count == 1
+        assert registry.login_account.call_count == 1  # Called for "personal"
+        
+        captured = capsys.readouterr()
+        assert "Claude Account Setup" in captured.out
+        assert "✓ Logged in" in captured.out
+        assert "✗ Not logged in" in captured.out
+        assert "Ready to use: work" in captured.out
+
+    def test_setup_all_accounts_all_active(self, registry, monkeypatch, capsys):
+        """Test setup when all accounts are already active."""
+        # All accounts logged in
+        registry.check_login_status = Mock(return_value=True)
+        registry.get_active_accounts = Mock(return_value={
+            "home": Path("/tmp/home"),
+            "work": Path("/tmp/work"),
+            "personal": Path("/tmp/personal")
+        })
+        
+        active_count = registry.setup_all_accounts()
+        
+        assert active_count == 3
+        
+        captured = capsys.readouterr()
+        assert "Ready to use: home, work, personal" in captured.out

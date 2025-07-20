@@ -188,10 +188,9 @@ class LiveDashboard:
             output.append("-" * 30)
             output.append(f"Recent Events: {rate_limits['recent_events']}")
             if rate_limits["last_event"]:
-                output.append(
-                    f"Last Event: {rate_limits['last_event']['worker_id']} "
-                    f"(retry after {rate_limits['last_event']['retry_after']}s)"
-                )
+                # last_event is a tuple: (datetime, worker_id)
+                event_time, worker_id = rate_limits["last_event"]
+                output.append(f"Last Event: {worker_id} at {event_time}")
 
         output.append("")
         output.append(f"Last Update: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
