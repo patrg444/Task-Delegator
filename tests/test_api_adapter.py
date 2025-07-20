@@ -101,7 +101,7 @@ class TestClaudeAPIAdapter:
             # Force an exception by mocking the logger.info to raise
             mock_logger.info.side_effect = Exception("Init failed")
             adapter._ensure_client()
-            
+
             # Check that error was logged
             mock_logger.error.assert_called_once()
 
@@ -383,7 +383,6 @@ class TestRateLimitAwareOrchestrator:
 
             # Should handle timeout gracefully
             await orchestrator.adaptive_worker_loop("worker_1", Path("/tmp"))
-
 
     @pytest.mark.asyncio
     async def test_adaptive_worker_loop_with_delay(self):

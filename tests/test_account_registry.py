@@ -259,15 +259,15 @@ class TestAccountRegistry:
         # Use an existing account name
         existing_account = "work"  # This exists in the fixture
         new_config_dir = tmp_path / "new_work_config"
-        
+
         with patch("task_delegator.account_registry.logger") as mock_logger:
             registry.add_account(existing_account, new_config_dir)
-            
+
             # Check warning was logged
             mock_logger.warning.assert_called_once_with(
                 "Account work already exists, updating path"
             )
-            
+
             # Verify the path was updated
             assert registry.get_account_path(existing_account) == new_config_dir
 
