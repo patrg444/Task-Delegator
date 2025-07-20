@@ -248,39 +248,40 @@ class TestSwarmOrchestrator:
         registry = AccountRegistry(config_file=tmp_path / "test_accounts.json")
         registry.add_account("worker_1", tmp_path / "worker1_config")
         
-        orchestrator = SwarmOrchestrator(registry)
-        orchestrator.results = {}
-        
-        # Create a mock queue with a task
-        mock_queue = AsyncMock()
-        dangerous_task = Task("dangerous_task", "Do something dangerous")
-        mock_queue.get.side_effect = [
-            (1, dangerous_task),  # First get returns the task
-            (None, None),  # Second get returns sentinel
-        ]
-        mock_queue.task_done = MagicMock()
-        orchestrator.task_queue = mock_queue
-        
-        # Mock stats
-        stats = WorkerStats("worker_1")
-        
-        # Mock the secure runner
-        with patch("task_delegator.core.SecureClaudeRunner") as mock_runner_class:
+        # Mock both SecureClaudeRunner and PolicyEnforcer at module level
+        with (
+            patch("task_delegator.core.SecureClaudeRunner") as mock_runner_class,
+            patch("task_delegator.core.PolicyEnforcer") as mock_enforcer_class,
+        ):
+            # Set up the mocks
             mock_runner = mock_runner_class.return_value
+            mock_runner.run_claude_secure = AsyncMock(return_value={"success": True, "completion": "Done"})
             
-            # Mock the policy enforcer to block the task
-            with patch("task_delegator.core.PolicyEnforcer") as mock_enforcer_class:
-                mock_enforcer = mock_enforcer_class.return_value
-                mock_enforcer.on_prompt = AsyncMock(return_value=(False, "dangerous"))
-                
-                # Run worker
-                await orchestrator.worker_loop("worker_1", tmp_path / "worker1_config")
-                
-                # Check task was marked as failed
-                assert dangerous_task.id in orchestrator.results
-                result = orchestrator.results[dangerous_task.id]
-                assert result.status == TaskStatus.FAILED
-                assert result.error == "Blocked by security policy"
+            mock_enforcer = mock_enforcer_class.return_value
+            mock_enforcer.on_prompt = AsyncMock(return_value=(False, "dangerous"))
+            
+            # Now create orchestrator - it will use the mocked classes
+            orchestrator = SwarmOrchestrator(registry)
+            orchestrator.results = {}
+            
+            # Create a mock queue with a task
+            mock_queue = AsyncMock()
+            dangerous_task = Task("dangerous_task", "Do something dangerous")
+            mock_queue.get.side_effect = [
+                (1, dangerous_task),  # First get returns the task
+                (None, None),  # Second get returns sentinel
+            ]
+            mock_queue.task_done = MagicMock()
+            orchestrator.task_queue = mock_queue
+            
+            # Run worker
+            await orchestrator.worker_loop("worker_1", tmp_path / "worker1_config")
+            
+            # Check task was marked as failed
+            assert dangerous_task.id in orchestrator.results
+            result = orchestrator.results[dangerous_task.id]
+            assert result.status == TaskStatus.FAILED
+            assert result.error == "Blocked by security policy"
 
     @pytest.mark.asyncio
     async def test_worker_unexpected_error(self, tmp_path):
@@ -288,42 +289,42 @@ class TestSwarmOrchestrator:
         registry = AccountRegistry(config_file=tmp_path / "test_accounts.json")
         registry.add_account("worker_1", tmp_path / "worker1_config")
         
-        orchestrator = SwarmOrchestrator(registry)
-        orchestrator.results = {}
-        
-        # Create a mock queue with a task
-        mock_queue = AsyncMock()
-        error_task = Task("error_task", "This will error")
-        mock_queue.get.side_effect = [
-            (1, error_task),  # First get returns the task
-            (None, None),  # Second get returns sentinel
-        ]
-        mock_queue.task_done = MagicMock()
-        orchestrator.task_queue = mock_queue
-        
-        # Mock stats
-        stats = WorkerStats("worker_1")
-        
-        # Mock the secure runner to raise exception
-        with patch("task_delegator.core.SecureClaudeRunner") as mock_runner_class:
+        # Mock both SecureClaudeRunner and PolicyEnforcer at module level
+        with (
+            patch("task_delegator.core.SecureClaudeRunner") as mock_runner_class,
+            patch("task_delegator.core.PolicyEnforcer") as mock_enforcer_class,
+        ):
+            # Set up the mocks
             mock_runner = mock_runner_class.return_value
             mock_runner.run_claude_secure = AsyncMock(
                 side_effect=Exception("Unexpected error during execution")
             )
             
-            # Mock the policy enforcer to allow
-            with patch("task_delegator.core.PolicyEnforcer") as mock_enforcer_class:
-                mock_enforcer = mock_enforcer_class.return_value
-                mock_enforcer.on_prompt = AsyncMock(return_value=(True, "prompt"))
-                
-                # Run worker
-                await orchestrator.worker_loop("worker_1", tmp_path / "worker1_config")
-                
-                # Check task was marked as failed
-                assert error_task.id in orchestrator.results
-                result = orchestrator.results[error_task.id]
-                assert result.status == TaskStatus.FAILED
-                assert "Unexpected error during execution" in result.error
+            mock_enforcer = mock_enforcer_class.return_value
+            mock_enforcer.on_prompt = AsyncMock(return_value=(True, "prompt"))
+            
+            # Now create orchestrator - it will use the mocked classes
+            orchestrator = SwarmOrchestrator(registry)
+            orchestrator.results = {}
+            
+            # Create a mock queue with a task
+            mock_queue = AsyncMock()
+            error_task = Task("error_task", "This will error")
+            mock_queue.get.side_effect = [
+                (1, error_task),  # First get returns the task
+                (None, None),  # Second get returns sentinel
+            ]
+            mock_queue.task_done = MagicMock()
+            orchestrator.task_queue = mock_queue
+            
+            # Run worker
+            await orchestrator.worker_loop("worker_1", tmp_path / "worker1_config")
+            
+            # Check task was marked as failed
+            assert error_task.id in orchestrator.results
+            result = orchestrator.results[error_task.id]
+            assert result.status == TaskStatus.FAILED
+            assert "Unexpected error during execution" in result.error
 
     def test_task_loader_from_prompts(self):
         """Test creating tasks from prompts."""
